@@ -1,0 +1,106 @@
+body{
+margin:0;
+padding:0;
+font-family:Arial, sans-serif;
+background:#ece5dd;
+}
+
+.header{
+background:#128C7E;
+color:white;
+padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.header h2{
+margin:0;
+}
+
+.logout{
+color:white;
+text-decoration:none;
+background:#075E54;
+padding:8px 15px;
+border-radius:5px;
+}
+
+.logout:hover
+
+#chat-box{
+height:75vh;
+overflow-y:auto;
+padding:15px;
+background:#e5ddd5;
+}
+
+.message{
+max-width:70%;
+margin-bottom:10px;
+padding:10px;
+border-radius:10px;
+word-wrap:break-word;
+}
+
+.sent{
+background:#DCF8C6;
+margin-left:auto;
+}
+
+.received{
+background:white;
+margin-right:auto;
+}
+
+.username{
+font-size:12px;
+font-weight:bold;
+color:#128C7E;
+margin-bottom:5px;
+}
+
+.message-area{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+padding:10px;
+display:flex;
+gap:10px;
+border-top:1px solid #ccc;
+}
+
+#message{
+flex:1;
+padding:12px;
+border:1px solid #ccc;
+border-radius:20px;
+outline:none;
+}
+
+button{
+background:#128C7E;
+color:white;
+border:none;
+padding:12px 20px;
+border-radius:20px;
+cursor:pointer;
+}
+
+button:hover
+
+@media(max-width:768px){
+
+```
+.message{
+    max-width:90%;
+}
+
+.header{
+    flex-direction:column;
+    gap:10px;
+}
+```
+
+}
