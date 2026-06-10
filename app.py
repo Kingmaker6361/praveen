@@ -1,195 +1,174 @@
-import streamlit as st
+from flask import Flask, render_template, request, redirect, session
+from flask_socketio import SocketIO, emit
 import sqlite3
-import os
-from datetime import datetime
+import bcrypt
 
-DB = "chat.db"
+app = Flask(**name**)
+app.secret_key = "secret123"
 
-conn = sqlite3.connect(DB, check_same_thread=False)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Database Setup
+
+def init_db():
+conn = sqlite3.connect("database.db")
 c = conn.cursor()
 
+```
 c.execute("""
 CREATE TABLE IF NOT EXISTS users(
-id INTEGER PRIMARY KEY,
-username TEXT UNIQUE,
-password TEXT
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT
 )
 """)
 
 c.execute("""
 CREATE TABLE IF NOT EXISTS messages(
-id INTEGER PRIMARY KEY,
-sender TEXT,
-message TEXT,
-filename TEXT,
-timestamp TEXT
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender TEXT,
+    message TEXT
 )
 """)
 
 conn.commit()
+conn.close()
+```
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+init_db()
 
-st.set_page_config(
-    page_title="Messenger",
-    layout="wide"
+# Home
+
+@app.route("/")
+def home():
+if "user" not in session:
+return redirect("/login")
+
+```
+return render_template(
+    "chat.html",
+    username=session["user"]
 )
+```
 
-st.title("💬 Praveen Messenger")
+# Register
 
-menu = st.sidebar.selectbox(
-    "Menu",
-    ["Login", "Register"]
-)
+@app.route("/register", methods=["GET", "POST"])
+def register():
 
-if "user" not in st.session_state:
-    st.session_state.user = None
+```
+if request.method == "POST":
 
-if menu == "Register":
+    username = request.form["username"]
+    password = request.form["password"]
 
-    st.subheader("Register")
+    hashed = bcrypt.hashpw(
+        password.encode(),
+        bcrypt.gensalt()
+    )
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
 
-    if st.button("Register"):
-
-        try:
-            c.execute(
-                "INSERT INTO users(username,password) VALUES(?,?)",
-                (username,password)
-            )
-            conn.commit()
-            st.success("Registered Successfully")
-
-        except:
-            st.error("User already exists")
-
-if menu == "Login":
-
-    st.subheader("Login")
-
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-
+    try:
         c.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username,password)
-        )
-
-        user = c.fetchone()
-
-        if user:
-            st.session_state.user = username
-            st.success("Login Successful")
-            st.rerun()
-
-        else:
-            st.error("Invalid Login")
-
-if st.session_state.user:
-
-    st.sidebar.success(
-        f"Logged in as {st.session_state.user}"
-    )
-
-    if st.sidebar.button("Logout"):
-        st.session_state.user = None
-        st.rerun()
-
-    st.subheader("Chat Room")
-
-    c.execute(
-        "SELECT sender,message,filename,timestamp FROM messages ORDER BY id"
-    )
-
-    messages = c.fetchall()
-
-    for sender,msg,file,time in messages:
-
-        st.markdown(
-            f"**{sender}** ({time})"
-        )
-
-        if msg:
-            st.write(msg)
-
-        if file:
-
-            filepath = os.path.join(
-                UPLOAD_FOLDER,
-                file
-            )
-
-            ext = file.lower()
-
-            if ext.endswith(
-                (".png",".jpg",".jpeg",".gif")
-            ):
-                st.image(filepath,width=300)
-
-            elif ext.endswith(
-                (".mp4",".mov",".avi")
-            ):
-                st.video(filepath)
-
-            else:
-                with open(filepath,"rb") as f:
-                    st.download_button(
-                        f"Download {file}",
-                        f,
-                        file_name=file
-                    )
-
-        st.divider()
-
-    message = st.text_input("Message")
-
-    uploaded_file = st.file_uploader(
-        "Send Image / Video / Document"
-    )
-
-    if st.button("Send"):
-
-        filename = ""
-
-        if uploaded_file:
-
-            filename = uploaded_file.name
-
-            with open(
-                os.path.join(
-                    UPLOAD_FOLDER,
-                    filename
-                ),
-                "wb"
-            ) as f:
-
-                f.write(
-                    uploaded_file.getbuffer()
-                )
-
-        c.execute(
-            """
-            INSERT INTO messages(
-            sender,
-            message,
-            filename,
-            timestamp
-            )
-            VALUES(?,?,?,?)
-            """,
-            (
-                st.session_state.user,
-                message,
-                filename,
-                str(datetime.now())
-            )
+            "INSERT INTO users(username,password) VALUES(?,?)",
+            (username, hashed)
         )
 
         conn.commit()
 
-        st.rerun()
+        return redirect("/login")
+
+    except:
+        return "User already exists"
+
+return render_template("register.html")
+```
+
+# Login
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+```
+if request.method == "POST":
+
+    username = request.form["username"]
+    password = request.form["password"]
+
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+
+    c.execute(
+        "SELECT password FROM users WHERE username=?",
+        (username,)
+    )
+
+    user = c.fetchone()
+
+    if user:
+
+        if bcrypt.checkpw(
+            password.encode(),
+            user[0]
+        ):
+
+            session["user"] = username
+
+            return redirect("/")
+
+    return "Invalid Login"
+
+return render_template("login.html")
+```
+
+# Logout
+
+@app.route("/logout")
+def logout():
+
+```
+session.clear()
+
+return redirect("/login")
+```
+
+# Socket Messaging
+
+@socketio.on("send_message")
+def handle_message(data):
+
+```
+conn = sqlite3.connect("database.db")
+c = conn.cursor()
+
+c.execute(
+    "INSERT INTO messages(sender,message) VALUES(?,?)",
+    (
+        data["sender"],
+        data["message"]
+    )
+)
+
+conn.commit()
+conn.close()
+
+emit(
+    "receive_message",
+    data,
+    broadcast=True
+)
+```
+
+if **name** == "**main**":
+
+```
+socketio.run(
+    app,
+    host="0.0.0.0",
+    port=5000,
+    debug=True,
+    allow_unsafe_werkzeug=True
+)
+```
