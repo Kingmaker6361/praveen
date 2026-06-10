@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>WhatsApp Clone</title>
+
+```
+<link rel="stylesheet" href="/static/style.css">
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+```
+
+</head>
+
+<body>
+
+<div class="header">
+
+```
+<div>
+    <h2>WhatsApp Clone</h2>
+    <small>Logged in as {{ username }}</small>
+</div>
+
+<div>
+    <a href="/logout" class="logout">
+        Logout
+    </a>
+</div>
+```
+
+</div>
+
+<div id="chat-box">
+
+</div>
+
+<div class="message-area">
+
+```
+<input
+    type="text"
+    id="message"
+    placeholder="Type a message">
+
+<button onclick="sendMessage()">
+    Send
+</button>
+```
+
+</div>
+
+<script>
+
+const USERNAME = "{{ username }}";
+
+</script>
+
+<script src="/static/chat.js"></script>
+
+</body>
+</html>
