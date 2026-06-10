@@ -1,174 +1,145 @@
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template_string
 from flask_socketio import SocketIO, emit
-import sqlite3
-import bcrypt
 
-app = Flask(**name**)
-app.secret_key = "secret123"
+app = Flask(__name__)
+app.config["SECRET_KEY"] = "secret"
 
-socketio = SocketIO(app, cors_allowed_origins="*")
-
-# Database Setup
-
-def init_db():
-conn = sqlite3.connect("database.db")
-c = conn.cursor()
-
-```
-c.execute("""
-CREATE TABLE IF NOT EXISTS users(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    password TEXT
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="threading"
 )
-""")
 
-c.execute("""
-CREATE TABLE IF NOT EXISTS messages(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sender TEXT,
-    message TEXT
-)
-""")
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>Messenger</title>
 
-conn.commit()
-conn.close()
-```
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-init_db()
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#ece5dd;
+}
 
-# Home
+.header{
+    background:#128C7E;
+    color:white;
+    text-align:center;
+    padding:15px;
+}
+
+#chat{
+    height:75vh;
+    overflow-y:auto;
+    padding:10px;
+}
+
+.msg{
+    background:white;
+    padding:10px;
+    margin:5px;
+    border-radius:10px;
+}
+
+.bottom{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    background:white;
+    padding:10px;
+}
+
+input{
+    width:60%;
+    padding:10px;
+}
+
+button{
+    padding:10px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="header">
+    <h2>Praveen Messenger</h2>
+</div>
+
+<div style="padding:10px;">
+<select id="user">
+    <option>Praveen</option>
+    <option>Anuu</option>
+</select>
+</div>
+
+<div id="chat"></div>
+
+<div class="bottom">
+    <input type="text" id="message" placeholder="Type message">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+
+const socket = io();
+
+socket.on("chat_message", function(data){
+
+    let div = document.createElement("div");
+    div.className = "msg";
+
+    div.innerHTML =
+        "<b>" + data.user + "</b>: " +
+        data.message;
+
+    document.getElementById("chat").appendChild(div);
+
+    document.getElementById("chat").scrollTop =
+        document.getElementById("chat").scrollHeight;
+});
+
+function sendMessage(){
+
+    let user =
+        document.getElementById("user").value;
+
+    let message =
+        document.getElementById("message").value;
+
+    if(message.trim() === "")
+        return;
+
+    socket.emit("send_message", {
+        user:user,
+        message:message
+    });
+
+    document.getElementById("message").value="";
+}
+
+</script>
+
+</body>
+</html>
+"""
 
 @app.route("/")
 def home():
-if "user" not in session:
-return redirect("/login")
-
-```
-return render_template(
-    "chat.html",
-    username=session["user"]
-)
-```
-
-# Register
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-
-```
-if request.method == "POST":
-
-    username = request.form["username"]
-    password = request.form["password"]
-
-    hashed = bcrypt.hashpw(
-        password.encode(),
-        bcrypt.gensalt()
-    )
-
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-
-    try:
-        c.execute(
-            "INSERT INTO users(username,password) VALUES(?,?)",
-            (username, hashed)
-        )
-
-        conn.commit()
-
-        return redirect("/login")
-
-    except:
-        return "User already exists"
-
-return render_template("register.html")
-```
-
-# Login
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-
-```
-if request.method == "POST":
-
-    username = request.form["username"]
-    password = request.form["password"]
-
-    conn = sqlite3.connect("database.db")
-    c = conn.cursor()
-
-    c.execute(
-        "SELECT password FROM users WHERE username=?",
-        (username,)
-    )
-
-    user = c.fetchone()
-
-    if user:
-
-        if bcrypt.checkpw(
-            password.encode(),
-            user[0]
-        ):
-
-            session["user"] = username
-
-            return redirect("/")
-
-    return "Invalid Login"
-
-return render_template("login.html")
-```
-
-# Logout
-
-@app.route("/logout")
-def logout():
-
-```
-session.clear()
-
-return redirect("/login")
-```
-
-# Socket Messaging
+    return render_template_string(HTML)
 
 @socketio.on("send_message")
 def handle_message(data):
+    emit("chat_message", data, broadcast=True)
 
-```
-conn = sqlite3.connect("database.db")
-c = conn.cursor()
-
-c.execute(
-    "INSERT INTO messages(sender,message) VALUES(?,?)",
-    (
-        data["sender"],
-        data["message"]
+if __name__ == "__main__":
+    socketio.run(
+        app,
+        host="0.0.0.0",
+        port=5000,
+        allow_unsafe_werkzeug=True
     )
-)
-
-conn.commit()
-conn.close()
-
-emit(
-    "receive_message",
-    data,
-    broadcast=True
-)
-```
-
-if **name** == "**main**":
-
-```
-socketio.run(
-    app,
-    host="0.0.0.0",
-    port=5000,
-    debug=True,
-    allow_unsafe_werkzeug=True
-)
-```
