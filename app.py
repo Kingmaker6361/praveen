@@ -1,114 +1,120 @@
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template_string
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, send
 import os
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "secret-key"
+app.config["SECRET_KEY"] = "secret"
 
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",
-    async_mode="threading"
+    cors_allowed_origins="*"
 )
 
 HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Praveen Messenger</title>
+<meta charset="UTF-8">
+<title>Praveen Messenger</title>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-    <style>
-        body{
-            margin:0;
-            font-family:Arial,sans-serif;
-            background:#ece5dd;
-        }
+<style>
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#ece5dd;
+}
 
-        .header{
-            background:#128C7E;
-            color:white;
-            text-align:center;
-            padding:15px;
-        }
+.header{
+    background:#128C7E;
+    color:white;
+    text-align:center;
+    padding:15px;
+}
 
-        #chat{
-            height:70vh;
-            overflow-y:auto;
-            padding:10px;
-        }
+#chat{
+    height:75vh;
+    overflow-y:auto;
+    padding:10px;
+}
 
-        .msg{
-            background:white;
-            padding:10px;
-            margin:8px;
-            border-radius:10px;
-            box-shadow:0 1px 3px rgba(0,0,0,0.2);
-        }
+.msg{
+    background:white;
+    margin:8px 0;
+    padding:10px;
+    border-radius:10px;
+}
 
-        .bottom{
-            position:fixed;
-            bottom:0;
-            width:100%;
-            background:white;
-            padding:10px;
-            display:flex;
-            gap:10px;
-        }
+.bottom{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    background:white;
+    display:flex;
+    gap:10px;
+    padding:10px;
+}
 
-        input{
-            flex:1;
-            padding:10px;
-        }
+input{
+    flex:1;
+    padding:10px;
+}
 
-        button{
-            background:#128C7E;
-            color:white;
-            border:none;
-            padding:10px 20px;
-            cursor:pointer;
-        }
+button{
+    padding:10px 20px;
+    background:#128C7E;
+    color:white;
+    border:none;
+    cursor:pointer;
+}
 
-        select{
-            margin:10px;
-            padding:8px;
-        }
-    </style>
+select{
+    margin:10px;
+    padding:5px;
+}
+</style>
 </head>
 
 <body>
 
 <div class="header">
-    <h2>Praveen Messenger</h2>
+<h2>Praveen Messenger</h2>
 </div>
 
 <select id="user">
-    <option>Praveen</option>
-    <option>Anuu</option>
+<option>Praveen</option>
+<option>Anuu</option>
 </select>
 
 <div id="chat"></div>
 
 <div class="bottom">
-    <input id="message" type="text" placeholder="Type message">
-    <button onclick="sendMessage()">Send</button>
+<input type="text" id="message" placeholder="Type message">
+<button onclick="sendMessage()">Send</button>
 </div>
 
 <script>
 
 const socket = io();
 
-socket.on("chat_message", function(data){
+socket.on("connect", function() {
+    console.log("Connected");
+});
 
-    let msg = document.createElement("div");
-    msg.className = "msg";
+socket.on("message", function(data){
 
-    msg.innerHTML =
+    const div = document.createElement("div");
+    div.className = "msg";
+
+    div.innerHTML =
         "<b>" + data.user + "</b><br>" +
-        data.message;
+        data.text;
 
-    document.getElementById("chat").appendChild(msg);
+    document.getElementById("chat").appendChild(div);
 
     document.getElementById("chat").scrollTop =
         document.getElementById("chat").scrollHeight;
@@ -116,26 +122,27 @@ socket.on("chat_message", function(data){
 
 function sendMessage(){
 
-    let user =
+    const user =
         document.getElementById("user").value;
 
-    let message =
+    const text =
         document.getElementById("message").value;
 
-    if(message.trim()==="")
+    if(text.trim() === "")
         return;
 
-    socket.emit("send_message", {
+    socket.send({
         user:user,
-        message:message
+        text:text
     });
 
     document.getElementById("message").value="";
 }
 
-document.getElementById("message")
+document
+.getElementById("message")
 .addEventListener("keypress", function(e){
-    if(e.key==="Enter"){
+    if(e.key === "Enter"){
         sendMessage();
     }
 });
@@ -150,15 +157,14 @@ document.getElementById("message")
 def home():
     return render_template_string(HTML)
 
-@socketio.on("send_message")
+@socketio.on("message")
 def handle_message(data):
-    emit("chat_message", data, broadcast=True)
+    send(data, broadcast=True)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     socketio.run(
         app,
         host="0.0.0.0",
-        port=port,
-        allow_unsafe_werkzeug=True
+        port=port
     )
